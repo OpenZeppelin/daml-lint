@@ -1,0 +1,13 @@
+[package]
+name = "daml-lint"
+version = "0.1.0"
+edition = "2021"
+description = "Static analysis scanner for DAML smart contracts"
+license = "Apache-2.0"
+
+[dependencies]
+tree-sitter = "0.24"
+tree-sitter-haskell = "0.23"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }

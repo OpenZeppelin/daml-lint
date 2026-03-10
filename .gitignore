@@ -1,0 +1,14 @@
+/target
+PLAN.md
+
+# Editor / IDE
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db

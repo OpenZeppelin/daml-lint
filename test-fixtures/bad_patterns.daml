@@ -1,0 +1,71 @@
+module Splice.Round where
+
+import DA.Time
+
+-- Detector #1: missing ensure on Decimal fields
+template OpenMiningRound
+  with
+    admin : Party
+    amuletPrice : Decimal
+    tickDuration : Decimal
+    round : Int
+  where
+    signatory admin
+    ensure isDefinedRound round
+
+-- Detector #2: unguarded division
+scaleFees fees openRound =
+  map (\f -> f { amount = f.amount * (1.0 / openRound.amuletPrice) }) fees
+
+-- Detector #4: unbounded fields
+template BuyTrafficRequest
+  with
+    admin : Party
+    trackingId : Text
+    memberId : Text
+    synchronizerId : Text
+    reason : Text
+  where
+    signatory admin
+
+-- Detector #5: missing positive amount check
+template Token
+  with
+    owner : Party
+  where
+    signatory owner
+
+    choice Transfer : ContractId Token
+      with
+        amount : Decimal
+        newOwner : Party
+      controller owner
+      do
+        create this with owner = newOwner
+
+-- Detector #6: archive before try/catch
+template VoteManager
+  with
+    admin : Party
+  where
+    signatory admin
+
+    choice CloseVoteRequest : ()
+      with
+        requestCid : ContractId VoteRequest
+      controller admin
+      do
+        request <- fetchAndArchive requestCid
+        let action = request.action
+        try do
+          executeAction action
+        catch
+          e -> pure ()
+
+-- Detector #3: head-of-list query
+getFeaturedAppRight owner = do
+  results <- queryFilter @FeaturedAppRight (\r -> r.provider == owner)
+  case results of
+    (rightCid, _) :: _ -> do
+      pure (Some rightCid)
+    [] -> pure None

@@ -1,0 +1,18 @@
+module SimpleToken.Holding where
+
+-- Should pass all detectors: proper ensure, bounded fields, etc.
+template SimpleHolding
+  with
+    admin : Party
+    amount : Decimal
+  where
+    signatory admin
+    ensure amount > 0.0
+
+    choice Transfer : ContractId SimpleHolding
+      with
+        newOwner : Party
+      controller admin
+      do
+        assertMsg "amount must be positive" (amount > 0.0)
+        create this with admin = newOwner
