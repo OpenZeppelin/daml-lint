@@ -1,5 +1,10 @@
 # daml-lint
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+
+> [!WARNING]
+> This software is experimental and not intended for production use. Use at your own risk.
+
 Static analysis scanner for [DAML](https://www.digitalasset.com/developers) smart contracts. Catches security vulnerabilities and anti-patterns through AST pattern matching, similar to what [Slither](https://github.com/crytic/slither) does for Solidity.
 
 ## Detectors
@@ -74,6 +79,3 @@ daml-lint ./daml/ --fail-on critical # fail only on critical
 | 1 | One or more findings at or above the threshold |
 | 2 | CLI error (invalid format, no files found, etc.) |
 
-## License
-
-[Apache-2.0](LICENSE)
