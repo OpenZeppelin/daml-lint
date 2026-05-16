@@ -56,7 +56,7 @@ Write results to a file:
 daml-lint ./daml/ --format sarif --output report.sarif
 ```
 
-### CI gating
+### Local gating
 
 Use `--fail-on` to control when the tool returns a non-zero exit code:
 
@@ -78,4 +78,3 @@ daml-lint ./daml/ --fail-on critical # fail only on critical
 | 0 | No findings at or above the `--fail-on` threshold |
 | 1 | One or more findings at or above the threshold |
 | 2 | CLI error (invalid format, no files found, etc.) |
-
