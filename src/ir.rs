@@ -189,6 +189,7 @@ pub struct Import {
 pub struct DamlModule {
     pub name: String,
     pub file: PathBuf,
+    pub source: String,
     pub imports: Vec<Import>,
     pub templates: Vec<Template>,
     pub functions: Vec<Function>,

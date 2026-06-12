@@ -24,6 +24,7 @@ pub fn parse_daml(source: &str, file: &Path) -> DamlModule {
     DamlModule {
         name: module_name,
         file: file.to_path_buf(),
+        source: source.to_string(),
         imports,
         templates,
         functions,

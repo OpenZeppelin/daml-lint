@@ -56,6 +56,30 @@ Write results to a file:
 daml-lint ./daml/ --format sarif --output report.sarif
 ```
 
+### Custom detectors
+
+Define your own detectors as regex rules in a JSON file and pass it with `--rules`:
+
+```sh
+daml-lint ./daml/ --rules examples/custom-rules.json
+```
+
+Each rule scans every source line and reports a finding where the pattern matches:
+
+```json
+[
+  {
+    "name": "no-trace",
+    "severity": "low",
+    "description": "Debug trace left in code",
+    "pattern": "\\btrace\\b",
+    "message": "Remove debug trace calls before deploying"
+  }
+]
+```
+
+`severity` is one of `critical`, `high`, `medium`, `low`, `info`. `pattern` is a Rust regex. Custom rules run alongside the built-in detectors and appear in all output formats. See [examples/custom-rules.json](examples/custom-rules.json) for a complete example.
+
 ### CI gating
 
 Use `--fail-on` to control when the tool returns a non-zero exit code:

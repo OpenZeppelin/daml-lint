@@ -1,0 +1,16 @@
+[
+  {
+    "name": "no-trace",
+    "severity": "low",
+    "description": "Debug trace left in code",
+    "pattern": "\\btrace\\b",
+    "message": "Remove debug trace calls before deploying"
+  },
+  {
+    "name": "no-party-from-text",
+    "severity": "medium",
+    "description": "Hardcoded party construction from text",
+    "pattern": "partyFromText",
+    "message": "Avoid constructing parties from text — pass parties as template fields or choice parameters"
+  }
+]

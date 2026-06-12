@@ -29,6 +29,10 @@ struct Cli {
     /// Minimum severity to cause non-zero exit: critical, high, medium, low, info
     #[arg(long, default_value = "high")]
     fail_on: String,
+
+    /// JSON file with custom regex detector rules (see examples/custom-rules.json)
+    #[arg(long)]
+    rules: Option<PathBuf>,
 }
 
 fn main() {
@@ -60,7 +64,16 @@ fn main() {
     eprintln!("daml-lint: scanning {} file(s)...", files.len());
 
     // Parse and analyze
-    let detectors = detector::all_detectors();
+    let mut detectors = detector::all_detectors();
+    if let Some(rules_path) = &cli.rules {
+        match detectors::custom::load_rules(rules_path) {
+            Ok(custom) => detectors.extend(custom),
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(2);
+            }
+        }
+    }
     let mut all_findings = Vec::new();
 
     for file in &files {
@@ -137,7 +150,7 @@ fn walk_dir(dir: &PathBuf, files: &mut Vec<PathBuf>) {
     }
 }
 
-fn parse_severity(s: &str) -> Option<Severity> {
+pub fn parse_severity(s: &str) -> Option<Severity> {
     match s.to_lowercase().as_str() {
         "critical" => Some(Severity::Critical),
         "high" => Some(Severity::High),
