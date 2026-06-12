@@ -78,7 +78,16 @@ Each rule scans every source line and reports a finding where the pattern matche
 ]
 ```
 
-`severity` is one of `critical`, `high`, `medium`, `low`, `info`. `pattern` is a Rust regex. Custom rules run alongside the built-in detectors and appear in all output formats. See [examples/custom-rules.json](examples/custom-rules.json) for a complete example.
+`severity` is one of `critical`, `high`, `medium`, `low`, `info`. `pattern` is a Rust regex; `description` is optional. Custom rules run alongside the built-in detectors and appear in all output formats. See [examples/custom-rules.json](examples/custom-rules.json) for a complete example.
+
+Things to know:
+
+- Backslashes in regexes must be doubled for JSON: write `"\\btrace\\b"` to mean the regex `\btrace\b`.
+- Patterns match raw source lines, including comments and string literals — `-- TODO: remove trace` will trigger a `trace` rule.
+- Patterns are matched one line at a time, so multiline constructs can't be matched.
+- Rule names must not collide with built-in detector names or each other.
+
+To check that a rules file parses without running a scan, point the tool at any path — rule errors are reported before file discovery and exit with code 2.
 
 ### CI gating
 

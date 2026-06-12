@@ -5,7 +5,7 @@ mod parser;
 mod reporter;
 
 use clap::Parser;
-use detector::Severity;
+use detector::{parse_severity, Severity};
 use reporter::OutputFormat;
 use std::path::PathBuf;
 
@@ -54,6 +54,23 @@ fn main() {
         std::process::exit(2);
     });
 
+    // Load detectors first so rule-file errors surface before scanning
+    let mut detectors = detector::all_detectors();
+    if let Some(rules_path) = &cli.rules {
+        match detectors::custom::load_rules(rules_path) {
+            Ok(custom) => {
+                if custom.is_empty() {
+                    eprintln!("Warning: rules file {} contains no rules.", rules_path.display());
+                }
+                detectors.extend(custom);
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(2);
+            }
+        }
+    }
+
     // Discover .daml files
     let files = discover_files(&cli.paths);
     if files.is_empty() {
@@ -62,18 +79,6 @@ fn main() {
     }
 
     eprintln!("daml-lint: scanning {} file(s)...", files.len());
-
-    // Parse and analyze
-    let mut detectors = detector::all_detectors();
-    if let Some(rules_path) = &cli.rules {
-        match detectors::custom::load_rules(rules_path) {
-            Ok(custom) => detectors.extend(custom),
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                std::process::exit(2);
-            }
-        }
-    }
     let mut all_findings = Vec::new();
 
     for file in &files {
@@ -147,16 +152,5 @@ fn walk_dir(dir: &PathBuf, files: &mut Vec<PathBuf>) {
                 files.push(path);
             }
         }
-    }
-}
-
-pub fn parse_severity(s: &str) -> Option<Severity> {
-    match s.to_lowercase().as_str() {
-        "critical" => Some(Severity::Critical),
-        "high" => Some(Severity::High),
-        "medium" => Some(Severity::Medium),
-        "low" => Some(Severity::Low),
-        "info" => Some(Severity::Info),
-        _ => None,
     }
 }

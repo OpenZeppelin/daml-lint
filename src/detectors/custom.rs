@@ -1,13 +1,15 @@
-use crate::detector::{Detector, Finding, Severity};
+use crate::detector::{parse_severity, Detector, Finding, Severity};
 use crate::ir::DamlModule;
 use regex::Regex;
 use serde::Deserialize;
+use std::collections::HashSet;
 use std::path::Path;
 
 /// Custom detector: user-defined regex rule loaded from a JSON file via --rules.
 ///
-/// Each rule scans every source line and reports a finding where the pattern
-/// matches. Rule file format (a JSON array):
+/// Each rule scans every raw source line (including comments and string
+/// literals) and reports one finding per match. Rule file format (a JSON
+/// array; description is optional):
 ///
 /// [
 ///   {
@@ -22,6 +24,7 @@ use std::path::Path;
 struct RawRule {
     name: String,
     severity: String,
+    #[serde(default)]
     description: String,
     pattern: String,
     message: String,
@@ -41,9 +44,20 @@ pub fn load_rules(path: &Path) -> Result<Vec<Box<dyn Detector>>, String> {
     let raw: Vec<RawRule> = serde_json::from_str(&text)
         .map_err(|e| format!("invalid rules file {}: {}", path.display(), e))?;
 
+    let mut seen: HashSet<String> = crate::detector::all_detectors()
+        .iter()
+        .map(|d| d.name().to_string())
+        .collect();
+
     raw.into_iter()
         .map(|r| {
-            let severity = crate::parse_severity(&r.severity).ok_or_else(|| {
+            if !seen.insert(r.name.clone()) {
+                return Err(format!(
+                    "rule '{}': name collides with a built-in detector or another rule",
+                    r.name
+                ));
+            }
+            let severity = parse_severity(&r.severity).ok_or_else(|| {
                 format!(
                     "rule '{}': unknown severity '{}'. Use critical, high, medium, low, or info.",
                     r.name, r.severity
@@ -78,7 +92,7 @@ impl Detector for CustomDetector {
     fn detect(&self, module: &DamlModule) -> Vec<Finding> {
         let mut findings = Vec::new();
         for (idx, line) in module.source.lines().enumerate() {
-            if let Some(m) = self.pattern.find(line) {
+            for m in self.pattern.find_iter(line) {
                 findings.push(Finding {
                     detector: self.name.clone(),
                     severity: self.severity,
@@ -135,16 +149,53 @@ logPrice price = price
     }
 
     #[test]
-    fn test_load_rules_rejects_bad_severity() {
-        let dir = std::env::temp_dir();
-        let path = dir.join("daml-lint-test-bad-severity.json");
-        std::fs::write(
-            &path,
-            r#"[{"name": "x", "severity": "huge", "description": "d", "pattern": "x", "message": "m"}]"#,
-        )
-        .unwrap();
+    fn test_multiple_matches_on_one_line_all_reported() {
+        let source = r#"module Test where
+
+logBoth x = trace "a" (trace "b" x)
+"#;
+        let module = parse_daml(source, Path::new("Test.daml"));
+        let findings = demo_detector().detect(&module);
+        assert_eq!(findings.len(), 2);
+    }
+
+    fn load_rules_from_str(label: &str, json: &str) -> Result<Vec<Box<dyn Detector>>, String> {
+        let path = std::env::temp_dir().join(format!(
+            "daml-lint-test-{}-{}.json",
+            label,
+            std::process::id()
+        ));
+        std::fs::write(&path, json).unwrap();
         let result = load_rules(&path);
         std::fs::remove_file(&path).ok();
+        result
+    }
+
+    #[test]
+    fn test_load_rules_rejects_bad_severity() {
+        let result = load_rules_from_str(
+            "bad-severity",
+            r#"[{"name": "x", "severity": "huge", "pattern": "x", "message": "m"}]"#,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_load_rules_rejects_builtin_name_collision() {
+        let result = load_rules_from_str(
+            "builtin-collision",
+            r#"[{"name": "unguarded-division", "severity": "low", "pattern": "x", "message": "m"}]"#,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_load_rules_rejects_duplicate_rule_names() {
+        let result = load_rules_from_str(
+            "dup-names",
+            r#"[{"name": "a", "severity": "low", "pattern": "x", "message": "m"},
+                {"name": "a", "severity": "low", "pattern": "y", "message": "m"}]"#,
+        );
         assert!(result.is_err());
     }
 

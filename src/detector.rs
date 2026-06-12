@@ -34,6 +34,17 @@ pub struct Finding {
     pub evidence: String,
 }
 
+pub fn parse_severity(s: &str) -> Option<Severity> {
+    match s.to_lowercase().as_str() {
+        "critical" => Some(Severity::Critical),
+        "high" => Some(Severity::High),
+        "medium" => Some(Severity::Medium),
+        "low" => Some(Severity::Low),
+        "info" => Some(Severity::Info),
+        _ => None,
+    }
+}
+
 pub trait Detector: Send + Sync {
     fn name(&self) -> &str;
     fn severity(&self) -> Severity;
