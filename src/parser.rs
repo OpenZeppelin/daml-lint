@@ -54,9 +54,7 @@ fn extract_imports(lines: &[&str]) -> Vec<Import> {
             let parts: Vec<&str> = trimmed.split_whitespace().collect();
             let module_name = parts
                 .iter()
-                .find(|p| {
-                    p.starts_with(|c: char| c.is_uppercase()) && **p != "qualified"
-                })
+                .find(|p| p.starts_with(|c: char| c.is_uppercase()) && **p != "qualified")
                 .unwrap_or(&"Unknown")
                 .to_string();
             let alias = parts
@@ -84,9 +82,7 @@ fn extract_templates(lines: &[&str], file: &Path) -> Vec<Template> {
 
     while i < lines.len() {
         let trimmed = lines[i].trim();
-        if trimmed.starts_with("template ")
-            && !trimmed.starts_with("template instance")
-        {
+        if trimmed.starts_with("template ") && !trimmed.starts_with("template instance") {
             let template_indent = indent_level(lines[i]);
             let name = trimmed
                 .strip_prefix("template ")
@@ -152,7 +148,9 @@ fn extract_fields(body: &[&str], body_offset: usize, file: &Path) -> Vec<Field> 
         let trimmed = line.trim();
 
         // Only match the first `with` block (template fields), not choice `with` blocks
-        if !found_first_with && (trimmed == "with" || trimmed.starts_with("with") && trimmed.len() == 4) {
+        if !found_first_with
+            && (trimmed == "with" || trimmed.starts_with("with") && trimmed.len() == 4)
+        {
             in_with_block = true;
             found_first_with = true;
             continue;
@@ -317,7 +315,11 @@ fn extract_choices(body: &[&str], body_offset: usize, file: &Path) -> Vec<Choice
         let choice_body = &body[choice_start..choice_end];
         let parameters = extract_choice_params(choice_body, body_offset + choice_start, file);
         let controllers = extract_clause(choice_body, "controller");
-        let body_raw = choice_body.iter().map(|l| *l).collect::<Vec<&str>>().join("\n");
+        let body_raw = choice_body
+            .iter()
+            .map(|l| *l)
+            .collect::<Vec<&str>>()
+            .join("\n");
         let statements = extract_statements(&body_raw);
 
         choices.push(Choice {
@@ -412,7 +414,9 @@ fn extract_statements(body_raw: &str) -> Vec<Statement> {
             statements.push(Statement::Assert {
                 condition: trimmed.to_string(),
             });
-        } else if trimmed.contains("fetchAndArchive") || (trimmed.contains("fetch") && !trimmed.contains("fetchByKey")) {
+        } else if trimmed.contains("fetchAndArchive")
+            || (trimmed.contains("fetch") && !trimmed.contains("fetchByKey"))
+        {
             if trimmed.contains("fetchAndArchive") {
                 let cid = trimmed
                     .split("fetchAndArchive")
@@ -420,7 +424,9 @@ fn extract_statements(body_raw: &str) -> Vec<Statement> {
                     .unwrap_or("")
                     .trim()
                     .to_string();
-                statements.push(Statement::Archive { cid_expr: cid.clone() });
+                statements.push(Statement::Archive {
+                    cid_expr: cid.clone(),
+                });
                 statements.push(Statement::Fetch { cid_expr: cid });
             } else if trimmed.contains("<-") && trimmed.contains("fetch ") {
                 let cid = trimmed
@@ -439,7 +445,9 @@ fn extract_statements(body_raw: &str) -> Vec<Statement> {
                 .trim()
                 .to_string();
             statements.push(Statement::Archive { cid_expr: cid });
-        } else if trimmed.contains("create ") && !trimmed.contains("create this") || trimmed.contains("create this") {
+        } else if trimmed.contains("create ") && !trimmed.contains("create this")
+            || trimmed.contains("create this")
+        {
             statements.push(Statement::Create {
                 template_name: String::new(),
                 raw: trimmed.to_string(),
@@ -464,10 +472,7 @@ fn extract_statements(body_raw: &str) -> Vec<Statement> {
                     j += 1;
                     continue;
                 }
-                if !inner_trimmed.is_empty()
-                    && indent_level(lines[j]) <= try_indent
-                    && !in_catch
-                {
+                if !inner_trimmed.is_empty() && indent_level(lines[j]) <= try_indent && !in_catch {
                     break;
                 }
                 if in_catch {
@@ -516,9 +521,7 @@ fn extract_functions(lines: &[&str], file: &Path, _templates: &[Template]) -> Ve
                         ti += 1;
                         continue;
                     }
-                    if indent_level(lines[ti]) <= template_indent
-                        && !lines[ti].trim().is_empty()
-                    {
+                    if indent_level(lines[ti]) <= template_indent && !lines[ti].trim().is_empty() {
                         break;
                     }
                     ti += 1;
@@ -531,7 +534,9 @@ fn extract_functions(lines: &[&str], file: &Path, _templates: &[Template]) -> Ve
     }
 
     let in_template = |line_idx: usize| -> bool {
-        template_ranges.iter().any(|(s, e)| line_idx >= *s && line_idx < *e)
+        template_ranges
+            .iter()
+            .any(|(s, e)| line_idx >= *s && line_idx < *e)
     };
 
     while i < lines.len() {
@@ -645,7 +650,12 @@ template SimpleHolding
         assert_eq!(t.fields[1].name, "amount");
         assert!(t.fields[1].type_.is_decimal());
         assert!(t.ensure_clause.is_some());
-        assert!(t.ensure_clause.as_ref().unwrap().raw_text.contains("amount > 0.0"));
+        assert!(t
+            .ensure_clause
+            .as_ref()
+            .unwrap()
+            .raw_text
+            .contains("amount > 0.0"));
         assert_eq!(t.choices.len(), 1);
         assert_eq!(t.choices[0].name, "Transfer");
         assert_eq!(t.choices[0].parameters.len(), 1);

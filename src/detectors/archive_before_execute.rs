@@ -54,10 +54,7 @@ impl ArchiveBeforeExecute {
                         archive_line,
                         base_line + line_idx,
                     ),
-                    evidence: format!(
-                        "{}\n  ...\n  try do ...",
-                        archive_evidence
-                    ),
+                    evidence: format!("{}\n  ...\n  try do ...", archive_evidence),
                 });
                 // Only report once per archive-then-try sequence
                 archive_seen = false;

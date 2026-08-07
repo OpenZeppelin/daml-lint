@@ -160,14 +160,35 @@ pub struct Choice {
 
 #[derive(Debug, Clone, Serialize)]
 pub enum Statement {
-    Let { name: String, expr: String },
-    Assert { condition: String },
-    Fetch { cid_expr: String },
-    Archive { cid_expr: String },
-    Create { template_name: String, raw: String },
-    Exercise { cid_expr: String, choice_name: String, raw: String },
-    TryCatch { try_body: Vec<Statement>, catch_body: Vec<Statement> },
-    Other { raw: String },
+    Let {
+        name: String,
+        expr: String,
+    },
+    Assert {
+        condition: String,
+    },
+    Fetch {
+        cid_expr: String,
+    },
+    Archive {
+        cid_expr: String,
+    },
+    Create {
+        template_name: String,
+        raw: String,
+    },
+    Exercise {
+        cid_expr: String,
+        choice_name: String,
+        raw: String,
+    },
+    TryCatch {
+        try_body: Vec<Statement>,
+        catch_body: Vec<Statement>,
+    },
+    Other {
+        raw: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]

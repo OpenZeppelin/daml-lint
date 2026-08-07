@@ -58,7 +58,10 @@ impl Detector for MissingPositiveAmount {
                                 "Choice '{}' accepts Decimal parameter '{}' without asserting > 0.",
                                 choice.name, param.name
                             ),
-                            evidence: format!("{} : Decimal  -- no positive-amount check", param.name),
+                            evidence: format!(
+                                "{} : Decimal  -- no positive-amount check",
+                                param.name
+                            ),
                         });
                     }
                 }
@@ -78,9 +81,13 @@ impl Detector for MissingPositiveAmount {
 
                 for param in &list_params {
                     let has_null_check = choice.body_raw.contains(&format!("null {}", param.name))
-                        || choice.body_raw.contains(&format!("null transfer.{}", param.name))
+                        || choice
+                            .body_raw
+                            .contains(&format!("null transfer.{}", param.name))
                         || choice.body_raw.contains(&format!("length {}", param.name))
-                        || choice.body_raw.contains(&format!("length transfer.{}", param.name))
+                        || choice
+                            .body_raw
+                            .contains(&format!("length transfer.{}", param.name))
                         || choice.body_raw.contains("not $ null");
 
                     if !has_null_check {

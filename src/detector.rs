@@ -44,17 +44,24 @@ pub trait Detector: Send + Sync {
 use crate::detectors::archive_before_execute::ArchiveBeforeExecute;
 use crate::detectors::ensure_decimal::MissingEnsureDecimal;
 use crate::detectors::head_of_list::HeadOfListQuery;
+use crate::detectors::observer_only_app_party::ObserverOnlyAppParty;
 use crate::detectors::positive_amount::MissingPositiveAmount;
 use crate::detectors::unbounded_fields::UnboundedFields;
 use crate::detectors::unguarded_division::UnguardedDivision;
 
-pub fn all_detectors() -> Vec<Box<dyn Detector>> {
-    vec![
+pub fn all_detectors(app_parties: &[String]) -> Vec<Box<dyn Detector>> {
+    let mut detectors: Vec<Box<dyn Detector>> = vec![
         Box::new(MissingEnsureDecimal),
         Box::new(UnguardedDivision),
         Box::new(HeadOfListQuery),
         Box::new(UnboundedFields),
         Box::new(MissingPositiveAmount),
         Box::new(ArchiveBeforeExecute),
-    ]
+    ];
+    if !app_parties.is_empty() {
+        detectors.push(Box::new(ObserverOnlyAppParty {
+            parties: app_parties.to_vec(),
+        }));
+    }
+    detectors
 }
