@@ -130,10 +130,7 @@ fn format_markdown(findings: &[Finding]) -> String {
         Severity::Low,
         Severity::Info,
     ] {
-        let group: Vec<_> = findings
-            .iter()
-            .filter(|f| f.severity == *severity)
-            .collect();
+        let group: Vec<_> = findings.iter().filter(|f| f.severity == *severity).collect();
         if group.is_empty() {
             continue;
         }
@@ -141,13 +138,17 @@ fn format_markdown(findings: &[Finding]) -> String {
         out.push_str(&format!("## {} ({})\n\n", severity, group.len()));
 
         for f in &group {
-            out.push_str(&format!("### {} `{}`\n\n", f.severity, f.detector));
-            out.push_str(&format!("**{}**\n\n", f.message));
-            out.push_str(&format!("- **File:** `{}:{}`\n", f.file.display(), f.line));
             out.push_str(&format!(
-                "- **Evidence:**\n  ```\n  {}\n  ```\n\n",
-                f.evidence
+                "### {} `{}`\n\n",
+                f.severity, f.detector
             ));
+            out.push_str(&format!("**{}**\n\n", f.message));
+            out.push_str(&format!(
+                "- **File:** `{}:{}`\n",
+                f.file.display(),
+                f.line
+            ));
+            out.push_str(&format!("- **Evidence:**\n  ```\n  {}\n  ```\n\n", f.evidence));
         }
     }
 
@@ -215,26 +216,11 @@ fn format_json(findings: &[Finding]) -> String {
 }
 
 fn count_by_severity(findings: &[Finding]) -> (usize, usize, usize, usize, usize) {
-    let critical = findings
-        .iter()
-        .filter(|f| f.severity == Severity::Critical)
-        .count();
-    let high = findings
-        .iter()
-        .filter(|f| f.severity == Severity::High)
-        .count();
-    let medium = findings
-        .iter()
-        .filter(|f| f.severity == Severity::Medium)
-        .count();
-    let low = findings
-        .iter()
-        .filter(|f| f.severity == Severity::Low)
-        .count();
-    let info = findings
-        .iter()
-        .filter(|f| f.severity == Severity::Info)
-        .count();
+    let critical = findings.iter().filter(|f| f.severity == Severity::Critical).count();
+    let high = findings.iter().filter(|f| f.severity == Severity::High).count();
+    let medium = findings.iter().filter(|f| f.severity == Severity::Medium).count();
+    let low = findings.iter().filter(|f| f.severity == Severity::Low).count();
+    let info = findings.iter().filter(|f| f.severity == Severity::Info).count();
     (critical, high, medium, low, info)
 }
 
