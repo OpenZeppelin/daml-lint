@@ -62,6 +62,17 @@ template VoteManager
         catch
           e -> pure ()
 
+-- Detector #7: observer-only app party (opt-in: --app-party app)
+-- 'app' observes the receipt but is never a signatory or a choice
+-- controller anywhere in this module, so it earns no CIP-0104 rewards.
+template AppSettlementReceipt
+  with
+    admin : Party
+    app : Party
+  where
+    signatory admin
+    observer app
+
 -- Detector #3: head-of-list query
 getFeaturedAppRight owner = do
   results <- queryFilter @FeaturedAppRight (\r -> r.provider == owner)
