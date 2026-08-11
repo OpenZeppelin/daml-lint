@@ -17,6 +17,7 @@ Static analysis scanner for [DAML](https://www.digitalasset.com/developers) smar
 | `archive-before-execute` | HIGH | Contract archived before a `try/catch` block — contract is lost if execution fails |
 | `head-of-list-query` | MEDIUM | Pattern match on head of `queryFilter` result — non-deterministic ordering risk |
 | `unbounded-fields` | MEDIUM | Text, List, or TextMap fields without size bounds in the `ensure` clause |
+| `observer-only-app-party` | LOW | Opt-in via `--app-party`: the named app party is an observer but never a signatory or a choice controller, so it earns no CIP-0104 traffic-based rewards |
 
 ## Installation
 
@@ -55,6 +56,33 @@ Write results to a file:
 ```sh
 daml-lint ./daml/ --format sarif --output report.sarif
 ```
+
+### CIP-0104 confirming-party check
+
+Under [CIP-0104](https://github.com/canton-foundation/cips), an application earns traffic-based rewards only on transactions where its party is a confirming party (a signatory or a choice controller). A refactor that demotes the app party to a plain observer keeps the code compiling and settling, but reward attribution silently stops. Name the app-party fields with `--app-party` (repeatable) to turn the check on:
+
+```sh
+daml-lint ./daml/ --app-party app --app-party executors
+```
+
+The check is module-level: a named party confirms when it appears in a `signatory` clause or in a choice `controller` clause of any template in the module (a settling choice makes the party a confirming party of the transaction that also creates the view templates). The detector reports one finding for each named party that appears in an `observer` clause somewhere in a module but confirms nowhere in it. Without `--app-party` the detector is off.
+
+The finding is LOW severity. An observer-only app party loses reward attribution on its own traffic; no funds are stolen and the templates keep working.
+
+Some templates observe the app party on purpose, for example a read-only audit view where the party must not confirm. Mark such a template with an allow annotation and the detector skips it:
+
+```daml
+template AuditView
+  with
+    admin : Party
+    app : Party
+  where
+    signatory admin
+    -- daml-lint: allow=observer-only-app-party
+    observer app
+```
+
+The annotation counts when it is in the template body or on the line directly above the `template` header. It takes a comma-separated list of detector names.
 
 ### CI gating
 

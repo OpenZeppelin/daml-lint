@@ -29,6 +29,11 @@ struct Cli {
     /// Minimum severity to cause non-zero exit: critical, high, medium, low, info
     #[arg(long, default_value = "high")]
     fail_on: String,
+
+    /// App-provider party field name for the CIP-0104 observer-only-app-party
+    /// detector (repeatable). The detector is off when no name is given.
+    #[arg(long = "app-party")]
+    app_parties: Vec<String>,
 }
 
 fn main() {
@@ -60,7 +65,7 @@ fn main() {
     eprintln!("daml-lint: scanning {} file(s)...", files.len());
 
     // Parse and analyze
-    let detectors = detector::all_detectors();
+    let detectors = detector::all_detectors(&cli.app_parties);
     let mut all_findings = Vec::new();
 
     for file in &files {

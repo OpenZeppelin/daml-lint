@@ -123,6 +123,7 @@ fn extract_templates(lines: &[&str], file: &Path) -> Vec<Template> {
             let observers = extract_clause(template_body, "observer");
             let ensure_clause = extract_ensure(template_body, body_start, file);
             let choices = extract_choices(template_body, body_start, file);
+            let allowed_lints = extract_allowed_lints(lines, i, body_end);
 
             templates.push(Template {
                 name,
@@ -131,6 +132,7 @@ fn extract_templates(lines: &[&str], file: &Path) -> Vec<Template> {
                 observers,
                 ensure_clause,
                 choices,
+                allowed_lints,
                 span,
             });
 
@@ -141,6 +143,30 @@ fn extract_templates(lines: &[&str], file: &Path) -> Vec<Template> {
     }
 
     templates
+}
+
+/// Collect detector names from `-- daml-lint: allow=<name>[,<name>]`
+/// annotations that belong to the template at `header_idx`. An annotation
+/// belongs to the template when it is inside the template body
+/// (`header_idx + 1 .. body_end`) or on the line directly above the header.
+fn extract_allowed_lints(lines: &[&str], header_idx: usize, body_end: usize) -> Vec<String> {
+    let mut allowed = Vec::new();
+    let start = header_idx.saturating_sub(1);
+    for line in &lines[start..body_end] {
+        let trimmed = line.trim();
+        let Some(rest) = trimmed.strip_prefix("-- daml-lint:") else {
+            continue;
+        };
+        let Some(list) = rest.trim().strip_prefix("allow=") else {
+            continue;
+        };
+        allowed.extend(
+            list.split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty()),
+        );
+    }
+    allowed
 }
 
 fn extract_fields(body: &[&str], body_offset: usize, file: &Path) -> Vec<Field> {

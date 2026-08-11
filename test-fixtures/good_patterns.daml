@@ -16,3 +16,17 @@ template SimpleHolding
       do
         assertMsg "amount must be positive" (amount > 0.0)
         create this with admin = newOwner
+
+-- Passes observer-only-app-party (--app-party app): 'app' observes the
+-- receipt but confirms via the Settle choice controller in this module.
+template AppSettlement
+  with
+    admin : Party
+    app : Party
+  where
+    signatory admin
+    observer app
+
+    choice Settle : ()
+      controller app
+      do pure ()
