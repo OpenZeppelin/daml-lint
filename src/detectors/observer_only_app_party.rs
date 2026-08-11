@@ -21,6 +21,14 @@ use crate::ir::DamlModule;
 /// `observer app` and `controller settlement.executors` matches
 /// `--app-party executors`, but `observer approver` does not match
 /// `--app-party app`.
+///
+/// Some templates observe the app party on purpose, for example a pure
+/// read-model view where the party must not confirm. Mark such a template
+/// with a `-- daml-lint: allow=observer-only-app-party` annotation (in the
+/// template body or on the line directly above the template header) and the
+/// detector skips it. The finding is LOW severity: an observer-only app
+/// party loses reward attribution on its own traffic, but no funds are at
+/// risk.
 pub struct ObserverOnlyAppParty {
     pub parties: Vec<String>,
 }
@@ -49,7 +57,7 @@ impl Detector for ObserverOnlyAppParty {
     }
 
     fn severity(&self) -> Severity {
-        Severity::High
+        Severity::Low
     }
 
     fn description(&self) -> &str {
@@ -63,6 +71,7 @@ impl Detector for ObserverOnlyAppParty {
             let observing: Vec<_> = module
                 .templates
                 .iter()
+                .filter(|t| !t.allowed_lints.iter().any(|a| a == self.name()))
                 .filter(|t| t.observers.iter().any(|o| references_party(o, party)))
                 .collect();
             if observing.is_empty() {
@@ -90,7 +99,7 @@ impl Detector for ObserverOnlyAppParty {
                 line: first.span.line,
                 column: first.span.column,
                 message: format!(
-                    "Party '{}' is an observer on template(s) {} but is never a signatory or a choice controller in module '{}'. Under CIP-0104, only a confirming party earns traffic-based rewards; an observer-only app party earns nothing on these transactions.",
+                    "Party '{}' is an observer on template(s) {} but is never a signatory or a choice controller in module '{}'. Under CIP-0104, only a confirming party earns traffic-based rewards; an observer-only app party earns nothing on these transactions. If the template observes the party on purpose, mark it with '-- daml-lint: allow=observer-only-app-party'.",
                     party,
                     template_names.join(", "),
                     module.name
@@ -140,6 +149,89 @@ template SettlementReceipt
         assert_eq!(findings.len(), 1);
         assert!(findings[0].message.contains("SettlementReceipt"));
         assert!(findings[0].message.contains("'app'"));
+        assert_eq!(findings[0].severity, Severity::Low);
+    }
+
+    #[test]
+    fn test_allow_annotation_in_body_suppresses_the_template() {
+        let source = r#"module Test where
+
+template AuditView
+  with
+    admin : Party
+    app : Party
+  where
+    signatory admin
+    -- daml-lint: allow=observer-only-app-party
+    observer app
+"#;
+        let module = parse_daml(source, Path::new("Audit.daml"));
+        let findings = detector().detect(&module);
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn test_allow_annotation_above_header_suppresses_the_template() {
+        let source = r#"module Test where
+
+-- daml-lint: allow=observer-only-app-party
+template AuditView
+  with
+    admin : Party
+    app : Party
+  where
+    signatory admin
+    observer app
+"#;
+        let module = parse_daml(source, Path::new("Audit.daml"));
+        let findings = detector().detect(&module);
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn test_allow_annotation_only_suppresses_the_annotated_template() {
+        let source = r#"module Test where
+
+template AuditView
+  with
+    admin : Party
+    app : Party
+  where
+    signatory admin
+    -- daml-lint: allow=observer-only-app-party
+    observer app
+
+template SettlementReceipt
+  with
+    admin : Party
+    app : Party
+  where
+    signatory admin
+    observer app
+"#;
+        let module = parse_daml(source, Path::new("Mixed.daml"));
+        let findings = detector().detect(&module);
+        assert_eq!(findings.len(), 1);
+        assert!(findings[0].message.contains("SettlementReceipt"));
+        assert!(!findings[0].message.contains("AuditView"));
+    }
+
+    #[test]
+    fn test_allow_annotation_for_another_detector_does_not_suppress() {
+        let source = r#"module Test where
+
+template SettlementReceipt
+  with
+    admin : Party
+    app : Party
+  where
+    signatory admin
+    -- daml-lint: allow=unbounded-fields
+    observer app
+"#;
+        let module = parse_daml(source, Path::new("Receipt.daml"));
+        let findings = detector().detect(&module);
+        assert_eq!(findings.len(), 1);
     }
 
     #[test]

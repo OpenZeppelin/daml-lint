@@ -97,6 +97,10 @@ pub struct Template {
     pub observers: Vec<String>,
     pub ensure_clause: Option<EnsureClause>,
     pub choices: Vec<Choice>,
+    /// Detector names listed in `-- daml-lint: allow=<name>[,<name>]`
+    /// annotations on the template. An annotation counts when it is in the
+    /// template body or on the line directly above the template header.
+    pub allowed_lints: Vec<String>,
     pub span: Span,
 }
 
