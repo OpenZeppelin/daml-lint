@@ -133,4 +133,23 @@ template RoundWithPartialEnsure
         assert_eq!(findings.len(), 1);
         assert!(findings[0].message.contains("amuletPrice"));
     }
+
+    #[test]
+    fn test_decimal_after_observers_field_triggers() {
+        let source = r#"module Test where
+
+template Holding
+  with
+    owner : Party
+    observers : [Party]
+    amount : Decimal
+  where
+    signatory owner
+    observer observers
+"#;
+        let module = parse_daml(source, Path::new("Holding.daml"));
+        let findings = MissingEnsureDecimal.detect(&module);
+        assert_eq!(findings.len(), 1);
+        assert!(findings[0].message.contains("amount"));
+    }
 }
