@@ -1,0 +1,7 @@
+# tree-sitter-haskell 0.23 bundles an array.h whose array_push writes through a
+# pointer cached before the realloc in _array__grow (a strict-aliasing violation);
+# an optimising GCC then writes into freed memory and the scanner aborts.
+# Fixed upstream in tree-sitter-haskell 0.24; drop this once the grammar is bumped.
+# A CFLAGS already set in the environment takes precedence and must carry the flag too.
+[env]
+CFLAGS = "-fno-strict-aliasing"
