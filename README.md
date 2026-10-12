@@ -21,7 +21,7 @@ Static analysis scanner for [DAML](https://www.digitalasset.com/developers) smar
 
 ## Installation
 
-Requires [Rust](https://rustup.rs/) 1.70+.
+Requires [Rust](https://rustup.rs/) 1.77+.
 
 ```sh
 git clone https://github.com/OpenZeppelin/daml-lint.git
