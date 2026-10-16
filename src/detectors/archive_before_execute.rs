@@ -1,5 +1,6 @@
 use crate::detector::{Detector, Finding, Severity};
 use crate::ir::{DamlModule, Statement};
+use crate::parser::first_word;
 
 /// Detector #6: archive-before-execute
 ///
@@ -36,7 +37,7 @@ impl ArchiveBeforeExecute {
                 archive_evidence = trimmed.to_string();
             }
 
-            if archive_seen && (trimmed.starts_with("try") || trimmed == "try") {
+            if archive_seen && first_word(trimmed) == "try" {
                 findings.push(Finding {
                     detector: self.name().to_string(),
                     severity: self.severity(),
@@ -173,6 +174,30 @@ template SafeManager
         archive requestCid
 "#;
         let module = parse_daml(source, Path::new("Safe.daml"));
+        let findings = ArchiveBeforeExecute.detect(&module);
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn test_binding_named_try_after_archive_passes() {
+        let source = r#"module Test where
+
+template Lock
+  with
+    owner : Party
+  where
+    signatory owner
+
+    choice Release : Bool
+      with
+        otherCid : ContractId Lock
+      controller owner
+      do
+        archive otherCid
+        trySettle <- pure True
+        pure trySettle
+"#;
+        let module = parse_daml(source, Path::new("Lock.daml"));
         let findings = ArchiveBeforeExecute.detect(&module);
         assert!(findings.is_empty());
     }

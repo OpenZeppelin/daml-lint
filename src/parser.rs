@@ -78,6 +78,18 @@ fn indent_level(line: &str) -> usize {
     line.len() - line.trim_start().len()
 }
 
+/// The name at the start of `line`. `#` covers MagicHash names, and non-ASCII
+/// characters count so that names with combining marks are not cut short.
+pub(crate) fn first_word(line: &str) -> &str {
+    let in_name = |c: char| {
+        c.is_ascii_alphanumeric()
+            || matches!(c, '_' | '\'' | '#')
+            || (!c.is_ascii() && !c.is_whitespace())
+    };
+    let end = line.find(|c| !in_name(c)).unwrap_or(line.len());
+    &line[..end]
+}
+
 fn extract_templates(lines: &[&str], file: &Path) -> Vec<Template> {
     let mut templates = Vec::new();
     let mut i = 0;
@@ -184,15 +196,15 @@ fn extract_fields(body: &[&str], body_offset: usize, file: &Path) -> Vec<Field> 
             continue;
         }
 
-        // End of with block when we hit where, signatory, ensure, choice, etc.
+        // End of with block when we hit where, signatory, ensure, choice, etc.,
+        // unless the line declares a field with that name (`observer : Party`).
+        let name = first_word(trimmed);
         if in_with_block
-            && (trimmed.starts_with("where")
-                || trimmed.starts_with("signatory")
-                || trimmed.starts_with("observer")
-                || trimmed.starts_with("ensure")
-                || trimmed.starts_with("choice")
-                || trimmed.starts_with("key")
-                || trimmed.starts_with("maintainer"))
+            && matches!(
+                name,
+                "where" | "signatory" | "observer" | "ensure" | "choice" | "key" | "maintainer"
+            )
+            && !trimmed[name.len()..].trim_start().starts_with(':')
         {
             in_with_block = false;
         }
@@ -225,7 +237,7 @@ fn extract_clause(body: &[&str], keyword: &str) -> Vec<String> {
     let mut results = Vec::new();
     for line in body {
         let trimmed = line.trim();
-        if trimmed.starts_with(keyword) {
+        if first_word(trimmed) == keyword {
             let rest = trimmed[keyword.len()..].trim();
             // Parse party expressions: could be `admin`, `[admin, user]`, etc.
             let parties: Vec<String> = rest
@@ -378,8 +390,7 @@ fn extract_choice_params(body: &[&str], body_offset: usize, file: &Path) -> Vec<
         }
 
         if in_with {
-            if trimmed.starts_with("controller")
-                || trimmed.starts_with("do")
+            if matches!(first_word(trimmed), "controller" | "do")
                 || (indent_level(line) <= with_indent && !trimmed.is_empty())
             {
                 in_with = false;
@@ -580,10 +591,8 @@ fn extract_functions(lines: &[&str], file: &Path, _templates: &[Template]) -> Ve
             && trimmed.contains(" = ")
             || (indent_level(lines[i]) == 0
                 && trimmed.contains('=')
-                && !trimmed.starts_with("module")
-                && !trimmed.starts_with("import")
+                && !matches!(first_word(trimmed), "module" | "import" | "template")
                 && !trimmed.starts_with("--")
-                && !trimmed.starts_with("template")
                 && !in_template(i))
         {
             let name = trimmed.split_whitespace().next().unwrap_or("").to_string();
@@ -716,5 +725,169 @@ template Foo
         let module = parse_daml(source, Path::new("Foo.daml"));
         assert_eq!(module.templates[0].choices.len(), 1);
         assert!(!module.templates[0].choices[0].consuming);
+    }
+
+    #[test]
+    fn test_fields_named_after_keywords_are_kept() {
+        let source = r#"module Test where
+
+template Holding
+  with
+    owner : Party
+    observers : [Party]
+    signatoryName : Text
+    ensured : Bool
+    choices : [Text]
+    keyId : Text
+    maintainers : [Party]
+    whereabouts : Text
+    observer : Party
+    key : Text
+    amount : Decimal
+  where
+    signatory owner
+    observer observers
+"#;
+        let module = parse_daml(source, Path::new("Holding.daml"));
+        let names: Vec<&str> = module.templates[0]
+            .fields
+            .iter()
+            .map(|f| f.name.as_str())
+            .collect();
+        assert_eq!(
+            names,
+            [
+                "owner",
+                "observers",
+                "signatoryName",
+                "ensured",
+                "choices",
+                "keyId",
+                "maintainers",
+                "whereabouts",
+                "observer",
+                "key",
+                "amount"
+            ]
+        );
+    }
+
+    #[test]
+    fn test_choice_params_named_after_keywords_are_kept() {
+        let source = r#"module Test where
+
+template Account
+  with
+    owner : Party
+  where
+    signatory owner
+
+    nonconsuming choice Pay : ()
+      with
+        domainId : Text
+        controllers : [Party]
+        amount : Decimal
+      controller owner
+      do pure ()
+"#;
+        let module = parse_daml(source, Path::new("Account.daml"));
+        let params: Vec<&str> = module.templates[0].choices[0]
+            .parameters
+            .iter()
+            .map(|p| p.name.as_str())
+            .collect();
+        assert_eq!(params, ["domainId", "controllers", "amount"]);
+        assert_eq!(module.templates[0].choices[0].controllers, ["owner"]);
+    }
+
+    #[test]
+    fn test_clauses_ignore_lines_that_only_start_with_a_keyword() {
+        let source = r#"module Test where
+
+template Registry
+  with
+    admin : Party
+    app : Party
+    observers : [Party]
+  where
+    signatory admin
+    observer observers
+
+    nonconsuming choice Issue : ContractId Badge
+      controller admin
+      do
+        signatoryHint <- pure app
+        controllerHint <- pure app
+        create Badge with
+          owner = admin
+          observers = [app]
+"#;
+        let module = parse_daml(source, Path::new("Registry.daml"));
+        let t = &module.templates[0];
+        assert_eq!(t.observers, ["observers"]);
+        assert_eq!(t.signatories, ["admin"]);
+        assert_eq!(t.choices[0].controllers, ["admin"]);
+    }
+
+    #[test]
+    fn test_where_still_ends_the_field_block() {
+        let source = r#"module Test where
+
+template Keyed
+  with
+    owner : Party
+    id : Text
+  where
+    signatory owner
+    key (owner, id) : (Party, Text)
+    maintainer key._1
+    ensure id /= ""
+
+    choice Rename : ContractId Keyed
+      with
+        newId : Text
+      controller owner
+      do create this with id = newId
+"#;
+        let module = parse_daml(source, Path::new("Keyed.daml"));
+        let t = &module.templates[0];
+        let names: Vec<&str> = t.fields.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, ["owner", "id"]);
+        assert!(t.ensure_clause.is_some());
+        assert_eq!(t.choices[0].parameters.len(), 1);
+    }
+
+    #[test]
+    fn test_functions_named_after_keywords_are_extracted() {
+        let source = r#"module Test where
+
+importDuty : Decimal -> Decimal -> Decimal
+importDuty value rate =
+  value / rate
+
+moduleOf : Text -> Text
+moduleOf name =
+  name
+
+templateFor : Text -> Text
+templateFor name =
+  name
+"#;
+        let module = parse_daml(source, Path::new("Duty.daml"));
+        for name in ["importDuty", "moduleOf", "templateFor"] {
+            assert!(module.functions.iter().any(|f| f.name == name), "{name}");
+        }
+    }
+
+    #[test]
+    fn test_first_word() {
+        assert_eq!(first_word("observers : [Party]"), "observers");
+        assert_eq!(first_word("observer[app]"), "observer");
+        assert_eq!(first_word("key(owner, id) : (Party, Text)"), "key");
+        assert_eq!(first_word("key_id : Text"), "key_id");
+        assert_eq!(first_word("do' <- pure ()"), "do'");
+        assert_eq!(first_word("do\u{301}lares : Decimal"), "do\u{301}lares");
+        assert_eq!(first_word("observer# : [Party]"), "observer#");
+        assert_eq!(first_word("-- comment"), "");
     }
 }
