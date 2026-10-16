@@ -196,12 +196,15 @@ fn extract_fields(body: &[&str], body_offset: usize, file: &Path) -> Vec<Field> 
             continue;
         }
 
-        // End of with block when we hit where, signatory, ensure, choice, etc.
+        // End of with block when we hit where, signatory, ensure, choice, etc.,
+        // unless the line declares a field with that name (`observer : Party`).
+        let name = first_word(trimmed);
         if in_with_block
             && matches!(
-                first_word(trimmed),
+                name,
                 "where" | "signatory" | "observer" | "ensure" | "choice" | "key" | "maintainer"
             )
+            && !trimmed[name.len()..].trim_start().starts_with(':')
         {
             in_with_block = false;
         }
@@ -738,6 +741,8 @@ template Holding
     keyId : Text
     maintainers : [Party]
     whereabouts : Text
+    observer : Party
+    key : Text
     amount : Decimal
   where
     signatory owner
@@ -760,6 +765,8 @@ template Holding
                 "keyId",
                 "maintainers",
                 "whereabouts",
+                "observer",
+                "key",
                 "amount"
             ]
         );
